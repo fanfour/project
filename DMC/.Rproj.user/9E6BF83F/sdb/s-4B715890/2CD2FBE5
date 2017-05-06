@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "\n\nmergedTrain_Sample = read.csv(\"mergedTrain_sample.csv\")\n\nsample_manu = read.csv2(\"C:/Users/Manuel/OneDrive/Project_Datascience/R/DMC_2017_Seminar/01_Data/final_sample.csv\")\nsample_manu$X = NULL\nsample_manu$trend_order_perc = NULL\nsample_manu$price_excess = NULL\n\naddCols.names = colnames(sample_manu)[(!colnames(sample_manu) %in% colnames(mergedTrain_Sample))]\n\naddCols.data = sample_manu[, c(addCols.names, \"lineID\")]\n\naddCols.names\n\nnew_sample = merge(addCols.data, mergedTrain_Sample, by = \"lineID\")\nwrite.csv(new_sample, \"mergedTrain_Sample.csv\")\n\n#Add missing attributes\n\n\n#remove outdated or redundant attributes\nABC_rev, ABC_dem, price_fluctuation, basket_Clean",
+    "created" : 1494064698892.000,
+    "dirty" : true,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "416428518",
+    "id" : "2CD2FBE5",
+    "lastKnownWriteTime" : 7019813714332118124,
+    "last_content_update" : 1494066360992,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
