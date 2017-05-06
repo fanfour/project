@@ -163,19 +163,7 @@ parallelStop()
 
 
 
-#Final evaluation
-
-rmse_own = function(actual, predicted){
-  error <- actual - predicted
-  rmse = sqrt(mean(error^2))
-  
-  return(rmse)
-}
-
-
-#predict(bmr_reg$results$`1`$regr.lm$models[[1]], regTasks[[1]])
-
-revenue_predictions = function(sets, bmr_class, bmr_rev){
+performance_combination = function(sets, bmr_class, bmr_rev){
   #create predict tasks
   tmp_sets = list()
   for(i in c(1:length(sets))){
@@ -193,30 +181,50 @@ revenue_predictions = function(sets, bmr_class, bmr_rev){
     for(j in length(i)){
       tmp = subset(sets[[j]], select = c(revenue_Clean))
       
-
-      
       #reduce it to the size of regr
-      
-      
-      for(k in bmr_reg$results){
-          tmp["ID"] = i[[j]]$pred$data$id
-          tmp["numericPred"] = predict(k[[j]]$models[[1]], regTasks.pred[[j]])
-          tmp["classPred"] = as.numeric(i[[j]]$pred$data$response)
-          
-          rev_predictions = append(rev_predictions, list(tmp))
+      for(k in bmr_reg$results[[j]]){
+        
+        tmp["ID"] = i[[j]]$pred$data$id
+        tmp["numericPred"] = predict(k$models[[1]], regTasks.pred[[j]])$data$response
+        tmp["classPred"] = as.numeric(i[[j]]$pred$data$response)
+        
       }
+      
+      rev_predictions = append(rev_predictions, list(tmp))
     }
   }
   
   return(rev_predictions)
 }
+comb_preds = performance_combination(sets, bmr, bmr_reg)
 
+revenue_calculation = function(comb_preds){
+  ret = list()
+  for(i in comb_preds){
+    tmp = i
+    tmp["revenuePrediction"] = tmp$numericPred * tmp$classPred
+    ret = append(ret, list(tmp))
+  }
+  
+  return(ret)
+}
 
-rev_preds = revenue_predictions(sets, bmr, bmr_reg)
+rev_preds = revenue_calculation(comb_preds)
 
+rmse_calc = function()
 
-rev_preds[1]
+#Final evaluation
 
+rmse_own = function(actual, predicted){
+  error <- actual - predicted
+  rmse = sqrt(mean(error^2))
+  
+  return(rmse)
+}
+
+for(i in rev_preds){
+  print(rmse_own(i$revenue_Clean, i$revenuePrediction))
+}
 
 
 final_ev = data.frame(classifier = character(), regression = character(), rmse = integer())
