@@ -6,13 +6,13 @@ library(sqldf)
 set.seed(42)
 options(scipen = 999)
 
-#Installations necessary?
-if(FALSE){
-  install.packages("penalized")
-  install.packages("C50")
-  install.packages("randomForest")
-  install.packages("adabag")
-}
+# Installations necessary?
+# 
+#   install.packages("penalized")
+#   install.packages("C50")
+#   install.packages("randomForest")
+#   install.packages("adabag")
+
 
 
 #DATA IMPORT AND PREPARATION
@@ -84,6 +84,7 @@ rdesc = makeResampleDesc("CV", iters = 3)
 
 #learner selection
 learners = list(makeLearner("classif.OneR"))
+
 #makeFeatSelWrapper("classif.C50", resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1))
 
 reg_learners = list(makeLearner("regr.lm"))
@@ -112,7 +113,6 @@ makeRegrTasks = function(listSets, target){
   return(regTasks)
 }
 
-
 training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRatio){
   #Remove quantity for prediction
   class_tasks = makeClassifTasks(sets, "order")
@@ -134,8 +134,8 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
      pred_sum["id"] = predictions$data$id
      pred_sum["classifier"] = j$ID
      pred_sum["Task"] = i
-     pred_sum["price"] = head(sets[[i]]$price, TrainTestRatio*n)
-     pred_sum["revenue_Clean"] = head(sets[[i]]$revenue_Clean, TrainTestRatio*n)
+     pred_sum["price"] = head(sets[[i]]$price, (1-TrainTestRatio)*n)
+     pred_sum["revenue_Clean"] = head(sets[[i]]$revenue_Clean, (1-TrainTestRatio)*n)
      list_pred = append(list_pred, list(pred_sum))
     }
   }
@@ -171,13 +171,11 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
   return(final_results)
 }
 
-
-#parralization
+#TRAINING AND PREDICTING ALL
 #parallelStartBatchJobs()
 parallelStartSocket(2, level = "mlr.resample")
-final_res = training_and_predicting(sets, learners, reg_learners, 0.5)
+final_res = training_and_predicting(sets, learners, reg_learners, 0.3)
 parallelStop()
-
 
 
 
@@ -196,18 +194,20 @@ rev_preds = revenue_calculation(final_res)
 
 summary(rev_preds[[2]]$revenuePrediction)
 
-test = rev_preds[[1]][order(rev_preds[[1]]$revenue_Clean),]
-
 
 result_viz = function(rev_preds){
   par(mfrow=c(length(rev_preds),1))
   
   for(i in rev_preds){
     test = i[order(i$revenue_Clean),]
-    plot(c(1:length(test[[1]])), test$revenue_Clean, type = "l")
-    lines(c(1:length(test[[1]])), test$revenuePrediction, col = "red")
+    plt = plot(c(1:length(test[[1]])), test$revenue_Clean, type = "l")
+    print(plt)
+    ln = lines(c(1:length(test[[1]])), test$revenuePrediction, col = "red")
+    print(ln)
   }
 }
+
+result_viz(rev_preds)
 
 rmse_own = function(actual, predicted){
     error <- actual - predicted
