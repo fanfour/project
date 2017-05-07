@@ -196,17 +196,25 @@ rev_preds = revenue_calculation(final_res)
 
 summary(rev_preds[[2]]$revenuePrediction)
 
+test = rev_preds[[1]][order(rev_preds[[1]]$revenue_Clean),]
+
+
+result_viz = function(rev_preds){
+  par(mfrow=c(length(rev_preds),1))
+  
+  for(i in rev_preds){
+    test = i[order(i$revenue_Clean),]
+    plot(c(1:length(test[[1]])), test$revenue_Clean, type = "l")
+    lines(c(1:length(test[[1]])), test$revenuePrediction, col = "red")
+  }
+}
+
 rmse_own = function(actual, predicted){
     error <- actual - predicted
     rmse = sqrt(mean(error^2))
     
     return(rmse)
 }
-
 for(i in rev_preds){
   print(rmse_own(i$revenue_Clean, i$revenuePrediction))
 }
-
-#Get the average revenue!
-
-final_ev = data.frame(classifier = character(), regression = character(), rmse = integer())
