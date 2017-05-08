@@ -57,6 +57,7 @@ prepDataImport = function(){
   
   return(train)
 }
+
 sets = list(originalDataImport(), prepDataImport())
 
 removeIDLikeFactors = function(listSets, maxNrFactors){
@@ -79,15 +80,17 @@ removeIDLikeFactors = function(listSets, maxNrFactors){
 sets = removeIDLikeFactors(sets, 50)
 
 #MODEL PREPARATION
-rdesc = makeResampleDesc("CV", iters = 3)
+rdesc = makeResampleDesc("Holdout")
 
 
 #learner selection
-learners = list(makeLearner("classif.OneR"))
+learners = list(makeLearner("classif.OneR"),
+                makeFeatSelWrapper("classif.C50", resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1)))
+
 
 #makeFeatSelWrapper("classif.C50", resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1))
 
-reg_learners = list(makeLearner("regr.lm"))
+reg_learners = list(makeFeatSelWrapper(makeLearner("regr.lm"), resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1)))
 
 
 #make tasks
@@ -122,8 +125,8 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
   for(i in c(1:length(class_tasks))){
     #Get the train set
     n = length(sets[[i]][[1]])
-    train_class = head(c(1:n), TrainTestRatio*n)
-    test_class = tail(c(1:n), (1-TrainTestRatio)*n)
+    train_class = head(c(1:n), ceiling(TrainTestRatio*n))
+    test_class = tail(c(1:n), ceiling((1-TrainTestRatio)*n))
 
     
     for(j in learnerClass){
@@ -132,10 +135,10 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
      
      pred_sum = data.frame(class_pred = (as.numeric(predictions$data$response)-1))
      pred_sum["id"] = predictions$data$id
-     pred_sum["classifier"] = j$ID
+     pred_sum["classifier"] = j$id
      pred_sum["Task"] = i
-     pred_sum["price"] = head(sets[[i]]$price, (1-TrainTestRatio)*n)
-     pred_sum["revenue_Clean"] = head(sets[[i]]$revenue_Clean, (1-TrainTestRatio)*n)
+     pred_sum["price"] = head(sets[[i]]$price, ceiling((1-TrainTestRatio)*n))
+     pred_sum["revenue_Clean"] = head(sets[[i]]$revenue_Clean, ceiling((1-TrainTestRatio)*n))
      list_pred = append(list_pred, list(pred_sum))
     }
   }
@@ -156,7 +159,7 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
       
       pred_sum = data.frame(reg_pred = predictions$data$response)
       pred_sum["id"] = predictions$data$id
-      pred_sum["regression_alg"] = j$ID
+      pred_sum["regression_alg"] = j$id
       list_pred_reg = append(list_pred_reg, list(pred_sum))
     }
   }
@@ -164,8 +167,12 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
   #combine the results
   final_results = list()
 
+  
   for(i in c(1:length(list_pred))){
-    final_results = append(final_results, list(merge(list_pred[[i]], list_pred_reg[[i]], by = "id")))
+    print(i)
+    for(j in c(1:length(list_pred_reg)))
+      print(j)
+      final_results = append(final_results, list(merge(list_pred[[i]], list_pred_reg[[j]], by = "id")))
   }
   
   return(final_results)
@@ -174,7 +181,7 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
 #TRAINING AND PREDICTING ALL
 #parallelStartBatchJobs()
 parallelStartSocket(2, level = "mlr.resample")
-final_res = training_and_predicting(sets, learners, reg_learners, 0.3)
+final_res = training_and_predicting(sets, learners, reg_learners, 0.7)
 parallelStop()
 
 
@@ -200,7 +207,7 @@ result_viz = function(rev_preds){
   
   for(i in rev_preds){
     test = i[order(i$revenue_Clean),]
-    plt = plot(c(1:length(test[[1]])), test$revenue_Clean, type = "l")
+    plt = plot(c(1:length(test[[1]])), test$revenue_Clean, type = "l", xlab = paste(test$classifier, "+", test$regression_alg, "+", test$Task))
     print(plt)
     ln = lines(c(1:length(test[[1]])), test$revenuePrediction, col = "red")
     print(ln)
@@ -209,12 +216,15 @@ result_viz = function(rev_preds){
 
 result_viz(rev_preds)
 
+
 rmse_own = function(actual, predicted){
     error <- actual - predicted
     rmse = sqrt(mean(error^2))
     
     return(rmse)
 }
+rmse_own(rev_preds[[1]]$revenue_Clean, integer(length(rev_preds[[1]]$revenue_Clean)))
+
 for(i in rev_preds){
   print(rmse_own(i$revenue_Clean, i$revenuePrediction))
 }
