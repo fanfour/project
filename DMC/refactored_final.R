@@ -13,52 +13,58 @@ options(scipen = 999)
 #   install.packages("randomForest")
 #   install.packages("adabag")
 
+df = read.csv("C:/Users/Manuel/OneDrive/Project_Datascience/R/DMC_2017_Seminar/01_Data/mergedTrain_sample.csv")
+
+#Remove complex attributes
+df = subset(df, select = -c(lineID, pid_Clean, click_Clean, basket_Clean, group_Clean, category_Clean, pharmForm_Clean, manufacturer_Clean))
+#Remove perfect collinear attributes
+df = subset(df, select = -c(mean_basket, competitorPrice_Clean, rrp_Clean, minPrice, maxPrice, avgPrice, diff_comp_price, diff_rrp_comp, diff_rrp_price, diff_min_price, diff_max_price, diff_avg_price))
+sets = list(df)
 
 
-#DATA IMPORT AND PREPARATION
-originalDataImport = function(){
-  
-  train_org = read.csv2("joined_train_org_sample.csv")
-  names(train_org)[names(train_org)=="revenue"] = "revenue_Clean"
-  
-  #Remove false predictors
-  train_org = subset(train_org, select = -c(X, pid, lineID))
-  
-  #factor data
-  train_org.factor = c("adFlag", "availability", "manufacturer", "group", "content", "unit", 
-                       "genericProduct", "salesIndex", "category", "campaignIndex")
-  
-  for(i in train_org.factor){
-    train_org[i] = as.factor(train_org[[i]])
-  }
-  
-  return(train_org)
-}
-prepDataImport = function(){
-  train = read.csv("mergedTrain_sample.csv")
-  
-  names(train)[names(train)=="order_Clean"] = "order"
-  names(train)[names(train)=="price_Clean"] = "price"
-  
-  #Remove false predictors
-  train = subset(train, select = -c(X, pid_Clean, lineID))
-  
-  #WEEKDAYS ARE MISSING
-  train.factor_fix = c("adFlag_Clean", "availability_Clean", "pharmForm_Clean", 
-                       "genericProduct_Clean", "salesIndex_Clean", "missingCompetitorPrice", "weekdays")
-  
-  train.factor_rem = c("manufacturer_Clean", "group_Clean", "content_Clean", "unit_Clean", "category_Clean", "campaignIndex_Clean")
-  
-  train.factor = c(train.factor_fix, train.factor_rem)
-  
-  for(i in train.factor){
-    train[i] = as.factor(train[[i]])
-  }
-  
-  return(train)
-}
-
-sets = list(originalDataImport(), prepDataImport())
+# #DATA IMPORT AND PREPARATION
+# originalDataImport = function(){
+#   
+#   train_org = read.csv2("joined_train_org_sample.csv")
+#   names(train_org)[names(train_org)=="revenue"] = "revenue_Clean"
+#   
+#   #Remove false predictors
+#   train_org = subset(train_org, select = -c(X, pid, lineID))
+#   
+#   #factor data
+#   train_org.factor = c("adFlag", "availability", "manufacturer", "group", "content", "unit", 
+#                        "genericProduct", "salesIndex", "category", "campaignIndex")
+#   
+#   for(i in train_org.factor){
+#     train_org[i] = as.factor(train_org[[i]])
+#   }
+#   
+#   return(train_org)
+# }
+# prepDataImport = function(){
+#   train = read.csv("mergedTrain_sample.csv")
+#   
+#   names(train)[names(train)=="order_Clean"] = "order"
+#   names(train)[names(train)=="price_Clean"] = "price"
+#   
+#   #Remove false predictors
+#   train = subset(train, select = -c(X, pid_Clean, lineID))
+#   
+#   #WEEKDAYS ARE MISSING
+#   train.factor_fix = c("adFlag_Clean", "availability_Clean", "pharmForm_Clean", 
+#                        "genericProduct_Clean", "salesIndex_Clean", "missingCompetitorPrice", "weekdays")
+#   
+#   train.factor_rem = c("manufacturer_Clean", "group_Clean", "content_Clean", "unit_Clean", "category_Clean", "campaignIndex_Clean")
+#   
+#   train.factor = c(train.factor_fix, train.factor_rem)
+#   
+#   for(i in train.factor){
+#     train[i] = as.factor(train[[i]])
+#   }
+#   
+#   return(train)
+# }
+# sets = list(originalDataImport(), prepDataImport())
 
 removeIDLikeFactors = function(listSets, maxNrFactors){
   #Remove all factorial attributes with nr(factors) > 50
@@ -85,8 +91,9 @@ rdesc = makeResampleDesc("Holdout")
 
 #learner selection
 learners = list(makeLearner("classif.OneR"),
-                makeFeatSelWrapper("classif.C50", resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1)))
-
+                makeFeatSelWrapper("classif.C50", resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1)),
+                makeFeatSelWrapper("classif.multinom", resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1))
+                )
 
 #makeFeatSelWrapper("classif.C50", resampling = rdesc, control = makeFeatSelControlGA(maxit = 10, mutation.rate = 0.1))
 
@@ -109,7 +116,7 @@ makeRegrTasks = function(listSets, target){
   for(i in c(1:length(listSets))){
 
     #REGRESION OVER QUANTITY
-    newTask = makeRegrTask(id = as.character(i), data = createDummyFeatures(subset(listSets[[i]], select = -c(order, revenue_Clean))), target = target)
+    newTask = makeRegrTask(id = as.character(i), data = createDummyFeatures(subset(listSets[[i]], select = -c(order_Clean, revenue_Clean))), target = target)
     regTasks = append(regTasks, list(newTask))
   }
   
@@ -118,7 +125,7 @@ makeRegrTasks = function(listSets, target){
 
 training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRatio){
   #Remove quantity for prediction
-  class_tasks = makeClassifTasks(sets, "order")
+  class_tasks = makeClassifTasks(sets, "order_Clean")
   
   
   list_pred = list()
@@ -133,11 +140,12 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
      model = train(j, class_tasks[[i]], subset = train_class)
      predictions = predict(model, class_tasks[[i]], subset = test_class)
      
-     pred_sum = data.frame(class_pred = (as.numeric(predictions$data$response)-1))
+     pred_sum = data.frame(class_pred = predictions$data$response)
+     pred_sum["class_pred"] = as.numeric(pred_sum$class_pred)-1
      pred_sum["id"] = predictions$data$id
      pred_sum["classifier"] = j$id
      pred_sum["Task"] = i
-     pred_sum["price"] = head(sets[[i]]$price, ceiling((1-TrainTestRatio)*n))
+     pred_sum["price"] = head(sets[[i]]$price_Clean, ceiling((1-TrainTestRatio)*n))
      pred_sum["revenue_Clean"] = head(sets[[i]]$revenue_Clean, ceiling((1-TrainTestRatio)*n))
      list_pred = append(list_pred, list(pred_sum))
     }
@@ -169,9 +177,7 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
 
   
   for(i in c(1:length(list_pred))){
-    print(i)
     for(j in c(1:length(list_pred_reg)))
-      print(j)
       final_results = append(final_results, list(merge(list_pred[[i]], list_pred_reg[[j]], by = "id")))
   }
   
@@ -183,7 +189,6 @@ training_and_predicting = function(sets, learnerClass, learnerRegr, TrainTestRat
 parallelStartSocket(2, level = "mlr.resample")
 final_res = training_and_predicting(sets, learners, reg_learners, 0.7)
 parallelStop()
-
 
 
 #FINAL PERFORMANCE EVALUATION
@@ -198,8 +203,6 @@ revenue_calculation = function(comb_preds){
   return(ret)
 }
 rev_preds = revenue_calculation(final_res)
-
-summary(rev_preds[[2]]$revenuePrediction)
 
 
 result_viz = function(rev_preds){

@@ -1,3 +1,4 @@
+rm(list = ls())
 library("parallelMap")
 library(mlr)
 library(sqldf)
@@ -32,14 +33,21 @@ originalDataImport = function(){
   
   return(train_org)
 }
+
+
 prepDataImport = function(){
-  train = read.csv("mergedTrain_sample.csv")
+  train = read.csv("C:/Users/Manuel/OneDrive/Project_Datascience/R/DMC_2017_Seminar/01_Data/mergedTrain_sample.csv")
+  
+  #Remove complex attributes
+  train = subset(train, select = -c(lineID, pid_Clean, click_Clean, basket_Clean))
+  #Remove false predictors
+  train = subset(train, select = -c(quantity, order_Clean))
+  
+  #Remove perfect collinear attributes
+  train = subset(train, select = -c(mean_basket, competitorPrice_Clean, rrp_Clean, minPrice, maxPrice, avgPrice, diff_comp_price, diff_rrp_comp, diff_rrp_price, diff_min_price, diff_max_price, diff_avg_price))
   
   names(train)[names(train)=="order_Clean"] = "order"
   names(train)[names(train)=="price_Clean"] = "price"
-  
-  #Remove false predictors
-  train = subset(train, select = -c(X, quantity, order, pid_Clean, lineID))
   
   #WEEKDAYS ARE MISSING
   train.factor_fix = c("adFlag_Clean", "availability_Clean", "pharmForm_Clean", 
@@ -116,36 +124,32 @@ rdesc2 = makeResampleDesc("CV", iters = 3)
 
 bmr = benchmark(learners, tasks, rdesc2, list(rmse))
 
-test = bmr$results$`1`$regr.ctree$pred$data
-test = test[order(test$truth),]
-
-par(mfrow = c(1,1))
-plot(c(1:length(test[[1]])), test$truth, type = "l")
-lines(c(1:length(test[[1]])), test$response, col = "red")
-
-result_viz = function(bmr) {
-  par(mfrow = c(length(length(bmr[[1]])*length(bmr[[1]][[1]])), 1))
-
-  for (i in bmr$results$`1`$regr.lm$pred) {
-    for(j in i){
-      tmp.data = j$pred$data
-      tmp.data = dmp.data[order(tmp.data$truth),]
-      j$pred$data$truth
-    }
-    
-    plt = plot(
-      c(1:length(test[[1]])),
-      test$revenue_Clean,
-      type = "l",
-      xlab = paste(test$classifier, "+", test$regression_alg, "+", test$Task)
-    )
-    print(plt)
-    ln = lines(c(1:length(test[[1]])), test$revenuePrediction, col = "red")
-    print(ln)
-  }
-}
-
-result_viz(rev_preds)
+#RESULT VISUALIZATION
+# result_viz = function(bmr) {
+#   par(mfrow = c(length(bmr[[1]])*length(bmr[[1]][[1]]), 1))
+# 
+#   for (i in bmr$results) {
+#     for(j in i){
+#       tmp.data = j$pred$data
+#       tmp.data = tmp.data[order(tmp.data$truth),]
+#       
+#       plt = plot(
+#         c(1:length(tmp.data[[1]])),
+#         tmp.data$truth,
+#         type = "l",
+#         xlab = paste("Task ", j$task.id, " + ", j$learner.id),
+#         ylab = "revenue of instance")
+#       print(plt)
+#       
+#       ln = lines(c(1:length(tmp.data[[1]])), tmp.data$response, col = "red")
+#       print(ln)
+#     }
+#   
+# 
+#   }
+# }
+# 
+# result_viz(bmr)
 
 #parallelStop()
 write.csv(bmr, "test_regr.csv")
