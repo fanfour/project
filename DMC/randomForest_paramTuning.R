@@ -69,8 +69,7 @@ lrn = makeLearner("regr.randomForestSRC")
 task = makeRegrTask(data = sets[[1]], target = "revenue_Clean")
 rdec = makeResampleDesc("CV", iters = 3)
 
-#parallelStartMPI(logging = TRUE)
-parallelStartSocket(logging = TRUE)
+parallelStartMPI(logging = TRUE)
 res = tuneParams(lrn, task, rdec, measures = rmse, ps, ctrl, show.info = TRUE)
 test = generateHyperParsEffectData(res, partial.dep = TRUE)
 test$data
