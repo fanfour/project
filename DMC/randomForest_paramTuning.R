@@ -59,17 +59,20 @@ sets = removeIDLikeFactors(sets, 50)
 
 ps = makeParamSet(
   makeDiscreteParam("ntree", values = c(25, 50, 100, 500)),
-  makeDiscreteParam("bootstrap", values = c("by.node")),
+  makeDiscreteParam("mtry", values = c(5, 10, 25)),
+  makeDiscreteParam("bootstrap", values = c("by.node", "by.root")),
   makeDiscreteParam("nodesize", values = c(3,5,10))
 )
 ctrl = makeTuneControlGrid()
+
 
 lrn = makeLearner("regr.randomForestSRC")
 
 task = makeRegrTask(data = sets[[1]], target = "revenue_Clean")
 rdec = makeResampleDesc("CV", iters = 3)
 
-parallelStartMPI(logging = TRUE)
+parallelStartMPI(logging = TRUE, level = "mlr.tuneParams")
+?parallelStartMPI
 res = tuneParams(lrn, task, rdec, measures = rmse, ps, ctrl, show.info = TRUE)
 test = generateHyperParsEffectData(res, partial.dep = TRUE)
 test$data
